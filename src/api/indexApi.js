@@ -1,11 +1,12 @@
 import axios from 'axios';
 
-const url = "https://covid19.mathdro.id/api";
+//covid19.mathdro.id is offline, so we use disease.sh and map its response to the same shape
+const url = "https://disease.sh/v3/covid-19";
 
 export const fetchData = async (country) => {
-    let changeableUrl = url;
+    let changeableUrl = `${url}/all`;
     if(country){
-        changeableUrl = `${url}/countries/${country}`;
+        changeableUrl = `${url}/countries/${encodeURIComponent(country)}`;
 
     }
     try {
@@ -35,8 +36,13 @@ export const fetchData = async (country) => {
         //instead of confirmed : confirmed we can just write confirmed
         return modifiedData; */
         //5 simplest
-        const { data: { confirmed, recovered, deaths, lastUpdate } } = await axios.get(changeableUrl);
-        return { confirmed, recovered, deaths, lastUpdate };
+        const { data: { cases, recovered, deaths, updated } } = await axios.get(changeableUrl);
+        return {
+            confirmed: { value: cases },
+            recovered: { value: recovered },
+            deaths: { value: deaths },
+            lastUpdate: updated
+        };
 
     } catch (error) {
         console.log(error);
@@ -45,27 +51,29 @@ export const fetchData = async (country) => {
 
 export const fetchDailyData = async () => {
     try{
-        const {data} = await axios.get(`${url}/daily`);
+        const {data:{cases, deaths}} = await axios.get(`${url}/historical/all?lastdays=all`);
         // console.log(response);
-        const modifiedData = data.map((dailyData) => ({
-            confirmed: dailyData.confirmed.total,
-            deaths: dailyData.deaths.total,
-            date: dailyData.reportDate,
+        const modifiedData = Object.keys(cases).map((date) => ({
+            confirmed: cases[date],
+            deaths: deaths[date],
+            date: new Date(date).toLocaleDateString(),
         }));
         return modifiedData;
 
     }catch(error){
-
+        console.log(error);
+        return [];
     }
 }
 
 export const fetchCountries = async () => {
     try{
-        const {data:{countries}} = await axios.get(`${url}/countries`);
+        const {data} = await axios.get(`${url}/countries`);
         //console.log(response);
-        return countries.map((country)=> country.name);
+        return data.map((country)=> country.country);
     }catch(error){
         console.log(error);
+        return [];
     }
 }
 
